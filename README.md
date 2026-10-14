@@ -25,6 +25,7 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 - **Format A4** portrait ou paysage.
 - **Impression** directe, ou **export Word (.docx)** pour retoucher la planche ensuite.
 - **Thème clair / sombre** selon le réglage du système.
+- **Interface adaptable** : la bibliothèque à gauche et les réglages à droite se masquent pour agrandir la feuille ; sur un petit écran, ils s'ouvrent par-dessus.
 
 ### Raccourcis clavier
 
@@ -35,6 +36,7 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 | Échap | Désélectionner |
 | Ctrl+Z | Annuler la dernière modification (aussi avec le bouton ↶) |
 | Ctrl+Maj+Z ou Ctrl+Y | Rétablir (aussi avec le bouton ↷) |
+| Ctrl + molette | Zoomer sur la feuille (aussi avec les boutons − et + sous la feuille) |
 
 ## Crédits et licence des pictogrammes
 
