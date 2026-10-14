@@ -66,12 +66,20 @@ header h1 { font-size: 1.25rem; margin: 0; margin-right: auto; letter-spacing: -
 .status.err::before { background: var(--err); }
 .status.err { color: var(--err); font-weight: 700; }
 
-main { display: grid; grid-template-columns: 350px 1fr; min-height: 0; }
+main { display: grid; grid-template-columns: 320px 1fr 320px; min-height: 0; }
 .panel {
   border-right: 2px solid var(--ink); padding: 16px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 22px; min-height: 0;
 }
+.panel.right { border-right: none; border-left: 2px solid var(--ink); gap: 0; }
 .panel h2 { font-size: 1rem; margin: 0 0 10px; }
+.panel h3 {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  margin: 0 0 8px;
+}
+.group { padding: 14px 0; border-top: 2px solid var(--line); }
+.group:first-of-type { border-top: none; padding-top: 0; }
+.group > :last-child { margin-bottom: 0; }
 .searchrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .searchrow select { grid-column: 1 / -1; }
 .hint { font-size: 0.85rem; color: var(--muted); margin: 8px 0 0; }
@@ -87,8 +95,8 @@ main { display: grid; grid-template-columns: 350px 1fr; min-height: 0; }
 .message { font-size: 0.92rem; color: var(--muted); margin: 10px 0 0; }
 .message.err { color: var(--err); }
 
-.seg { display: inline-flex; border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
-.seg button { border: 0; border-radius: 0; background: var(--field); }
+.seg { display: flex; border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: var(--field); }
 .seg button + button { border-left: 2px solid var(--ink); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
 
@@ -97,7 +105,8 @@ main { display: grid; grid-template-columns: 350px 1fr; min-height: 0; }
 .field small { font-weight: 400; color: var(--muted); }
 .mm { display: flex; align-items: center; gap: 6px; }
 .mm input { width: 100%; }
-.checks { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; font-size: 0.92rem; }
+.checks { display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.dims + .checks { margin-top: 14px; }
 .checks label, .tools label { display: inline-flex; align-items: center; gap: 8px; }
 
 .info {
@@ -145,7 +154,7 @@ details pre { white-space: pre-wrap; font-family: inherit; font-size: 0.85rem; m
 .sizerow input[type="range"] { width: 100%; accent-color: var(--ink); }
 .info .sub { font-size: 0.9rem; margin: 2px 0 8px; }
 .info .tip { color: var(--muted); }
-.textopts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-top: 16px; }
+.textopts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
 .textopts select { width: 100%; font-weight: 400; }
 
 .item {
@@ -193,10 +202,15 @@ details pre { white-space: pre-wrap; font-family: inherit; font-size: 0.85rem; m
 body.grid-mode .free-only { display: none !important; }
 body:not(.grid-mode) .grid-only { display: none !important; }
 
+@media (max-width: 1100px) and (min-width: 821px) {
+  main { grid-template-columns: 280px 1fr 280px; }
+  .textopts { grid-template-columns: 1fr; }
+}
 @media (max-width: 820px) {
   body { height: auto; }
   main { grid-template-columns: 1fr; }
   .panel { border-right: none; border-bottom: 2px solid var(--ink); overflow: visible; }
+  .panel.right { order: 3; border-left: none; border-top: 2px solid var(--ink); border-bottom: none; }
   .desk { min-height: 75vh; }
 }
 
@@ -220,7 +234,6 @@ body:not(.grid-mode) .grid-only { display: none !important; }
 <header>
   <h1>Planche de pictogrammes</h1>
   <span id="apiStatus" class="status">Test de l'API ARASAAC…</span>
-  <button id="orientBtn" type="button">Passer en paysage</button>
   <button id="exportBtn" type="button">Exporter en Word</button>
   <button id="printBtn" class="primary" type="button">Imprimer la page</button>
 </header>
@@ -247,37 +260,80 @@ body:not(.grid-mode) .grid-only { display: none !important; }
       <div id="results" class="results"></div>
     </section>
 
-    <section>
-      <h2>Mise en page</h2>
+    <details id="diag">
+      <summary>Résultat du test de l'API</summary>
+      <pre id="diagText">Test en cours…</pre>
+      <button id="retestBtn" type="button" style="margin-top:8px">Relancer le test</button>
+    </details>
+  </aside>
+
+  <section class="desk" id="desk">
+    <div class="sizer" id="sizer">
+      <div class="page" id="page" aria-label="Feuille A4">
+        <div class="empty-note" id="emptyNote">Ajoute des pictogrammes depuis la recherche</div>
+        <div class="attrib">Pictogrammes : Sergio Palao. Origine : ARASAAC (https://arasaac.org). Licence : CC (BY-NC-SA). Propriété : Gouvernement d'Aragon (Espagne).</div>
+      </div>
+    </div>
+    <div class="selbar" id="selbar">
+      <label>Légende <input id="selCaption" type="text"></label>
+      <label class="free-only"><input id="selShowCap" type="checkbox"> Afficher</label>
+      <label class="free-only">Taille <input id="selSize" type="range" min="15" max="180" step="1"></label>
+      <label class="free-only"><input id="selFrame" type="checkbox"> Cadre</label>
+      <button id="selDup" type="button">Dupliquer</button>
+      <button id="selDel" type="button">Supprimer</button>
+    </div>
+  </section>
+
+  <aside class="panel right">
+    <h2>Mise en page</h2>
+    <div class="group">
+      <h3>Feuille A4</h3>
+      <div class="seg" role="group" aria-label="Orientation de la feuille">
+        <button type="button" id="orientPortrait">Portrait</button>
+        <button type="button" id="orientLandscape">Paysage</button>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Placement</h3>
       <div class="seg" role="group" aria-label="Mode de placement">
         <button type="button" id="modeGrid">Grille</button>
-        <button type="button" id="modeFree">Placement libre</button>
+        <button type="button" id="modeFree">Libre</button>
       </div>
-
-      <div class="grid-only">
-        <div class="dims">
-          <label class="field" style="grid-column: 1 / -1">Taille des cases
-            <span class="sizerow">
-              <input id="pictoSize" type="range" min="10" max="180" step="1" aria-label="Taille des cases en millimètres">
-              <span class="mm"><input id="pictoSizeNum" type="number" min="10" max="180" step="1"> mm</span>
-            </span>
-          </label>
-          <label class="field">Marges <small>bords de la feuille</small>
-            <span class="mm"><input id="margin" type="number" min="0" max="40" step="1"> mm</span>
-          </label>
-          <label class="field">Espacement <small>entre les pictos</small>
-            <span class="mm"><input id="gap" type="number" min="0" max="30" step="1"> mm</span>
-          </label>
-        </div>
-        <div class="checks">
-          <label><input id="showCap" type="checkbox"> Légendes sous les pictogrammes</label>
-          <label><input id="lines" type="checkbox"> Lignes de séparation (pour découper)</label>
-        </div>
-        <div class="info" id="info" aria-live="polite"></div>
+      <div class="tools free-only" style="margin-top:14px">
+        <label><input id="snap" type="checkbox"> Aimanter tous les 5 mm</label>
+        <label><input id="frameAll" type="checkbox"> Cadre autour de chaque picto</label>
       </div>
-
+      <p class="hint free-only">Flèches pour déplacer de 1 mm (Maj : 5 mm), Suppr pour enlever.</p>
+    </div>
+    <div class="group grid-only">
+      <h3>Grille</h3>
+      <div class="dims">
+        <label class="field" style="grid-column: 1 / -1">Taille des cases
+          <span class="sizerow">
+            <input id="pictoSize" type="range" min="10" max="180" step="1" aria-label="Taille des cases en millimètres">
+            <span class="mm"><input id="pictoSizeNum" type="number" min="10" max="180" step="1"> mm</span>
+          </span>
+        </label>
+        <label class="field">Marges <small>bords de la feuille</small>
+          <span class="mm"><input id="margin" type="number" min="0" max="40" step="1"> mm</span>
+        </label>
+        <label class="field">Espacement <small>entre les pictos</small>
+          <span class="mm"><input id="gap" type="number" min="0" max="30" step="1"> mm</span>
+        </label>
+      </div>
+      <div class="checks">
+        <label><input id="lines" type="checkbox"> Lignes de séparation (pour découper)</label>
+      </div>
+      <div class="info" id="info" aria-live="polite"></div>
+      <p class="hint">Glisse un picto sur une autre case pour les échanger. Au clavier : flèches pour changer de case, Suppr pour enlever.</p>
+    </div>
+    <div class="group">
+      <h3>Légendes</h3>
+      <div class="checks grid-only" style="margin-bottom:12px">
+        <label><input id="showCap" type="checkbox"> Afficher les légendes</label>
+      </div>
       <div class="textopts">
-        <label class="field">Police des légendes
+        <label class="field">Police
           <select id="capFont">
             <optgroup label="Installées sur presque tous les ordinateurs">
               <option value="Arial">Arial</option>
@@ -302,41 +358,11 @@ body:not(.grid-mode) .grid-only { display: none !important; }
         </label>
       </div>
       <p class="hint" id="fontHint" hidden>Police web : pour l'export Word, installe-la sur l'ordinateur depuis fonts.google.com, sinon Word la remplacera.</p>
-
-      <div class="tools free-only" style="margin-top:14px">
-        <label><input id="snap" type="checkbox"> Aimanter tous les 5 mm</label>
-        <label><input id="frameAll" type="checkbox"> Cadre autour de chaque picto</label>
-      </div>
-      <div class="tools" style="margin-top:14px">
-        <button id="clearBtn" type="button">Vider la feuille</button>
-      </div>
-      <p class="hint grid-only">La grille se calcule toute seule à partir de la taille, des marges et de l'espacement. Glisse un picto sur une autre case pour les échanger. Au clavier : flèches pour changer de case, Suppr pour enlever.</p>
-      <p class="hint free-only">Flèches pour déplacer de 1 mm (Maj : 5 mm), Suppr pour enlever.</p>
-    </section>
-
-    <details id="diag">
-      <summary>Résultat du test de l'API</summary>
-      <pre id="diagText">Test en cours…</pre>
-      <button id="retestBtn" type="button" style="margin-top:8px">Relancer le test</button>
-    </details>
+    </div>
+    <div class="group">
+      <button id="clearBtn" type="button">Vider la feuille</button>
+    </div>
   </aside>
-
-  <section class="desk" id="desk">
-    <div class="sizer" id="sizer">
-      <div class="page" id="page" aria-label="Feuille A4">
-        <div class="empty-note" id="emptyNote">Ajoute des pictogrammes depuis la recherche</div>
-        <div class="attrib">Pictogrammes : Sergio Palao. Origine : ARASAAC (https://arasaac.org). Licence : CC (BY-NC-SA). Propriété : Gouvernement d'Aragon (Espagne).</div>
-      </div>
-    </div>
-    <div class="selbar" id="selbar">
-      <label>Légende <input id="selCaption" type="text"></label>
-      <label class="free-only"><input id="selShowCap" type="checkbox"> Afficher</label>
-      <label class="free-only">Taille <input id="selSize" type="range" min="15" max="180" step="1"></label>
-      <label class="free-only"><input id="selFrame" type="checkbox"> Cadre</label>
-      <button id="selDup" type="button">Dupliquer</button>
-      <button id="selDel" type="button">Supprimer</button>
-    </div>
-  </section>
 </main>
 
 <script>
@@ -488,7 +514,8 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     }
 
     $("emptyNote").style.display = !isGrid() && !state.items.length ? "" : "none";
-    $("orientBtn").textContent = state.orientation === "portrait" ? "Passer en paysage" : "Passer en portrait";
+    $("orientPortrait").setAttribute("aria-pressed", state.orientation === "portrait");
+    $("orientLandscape").setAttribute("aria-pressed", state.orientation === "landscape");
     $("pageRule").textContent = `@page { size: A4 ${state.orientation}; margin: 0; }`;
     const g = state.grid;
     $("pictoSize").value = g.size; $("pictoSizeNum").value = g.size;
@@ -976,9 +1003,10 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     if (!state.items.length || !confirm("Enlever tous les pictogrammes de la feuille ?")) return;
     state.items = []; selected = null; setCell(null); save(); render();
   });
-  $("orientBtn").addEventListener("click", () => {
+  function setOrientation(o) {
     const prev = state.orientation;
-    state.orientation = prev === "portrait" ? "landscape" : "portrait";
+    if (o === prev) return;
+    state.orientation = o;
     if (isGrid()) {
       if (geom().total < 1) {
         state.orientation = prev; render();
@@ -994,7 +1022,9 @@ body:not(.grid-mode) .grid-only { display: none !important; }
       });
     }
     save(); render();
-  });
+  }
+  $("orientPortrait").addEventListener("click", () => setOrientation("portrait"));
+  $("orientLandscape").addEventListener("click", () => setOrientation("landscape"));
   $("printBtn").addEventListener("click", () => { select(null); setCell(null); window.print(); });
 
   /* ---------- Search ---------- */
