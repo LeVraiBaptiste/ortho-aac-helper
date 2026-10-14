@@ -92,6 +92,20 @@ main { display: grid; grid-template-columns: 320px 1fr 320px; min-height: 0; }
 .result:hover { border-color: #151515; background: #fff; }
 .result img { width: 100%; aspect-ratio: 1; object-fit: contain; pointer-events: none; }
 .result span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+.mine { position: relative; }
+.mine .result { width: 100%; }
+.mine .rm {
+  position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; padding: 0; border-radius: 50%;
+  background: var(--ink); color: var(--panel); border: 2px solid var(--panel); font-size: 0.9rem; line-height: 1;
+}
+.mine .rm:hover { background: var(--err); }
+#mine:empty { display: none; }
+.dirbox {
+  margin-top: 10px; border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem;
+}
+.dirbox[hidden] { display: none; }
+.dirbox .tools button { padding: 3px 10px; font-size: 0.85rem; }
 .message { font-size: 0.92rem; color: var(--muted); margin: 10px 0 0; }
 .message.err { color: var(--err); }
 
@@ -260,6 +274,25 @@ body:not(.grid-mode) .grid-only { display: none !important; }
       <div id="results" class="results"></div>
     </section>
 
+    <section>
+      <h2>Mes images</h2>
+      <input id="mq" type="search" placeholder="Chercher dans mes images" autocomplete="off" aria-label="Chercher dans mes images" style="width:100%">
+      <div class="tools" style="margin-top:10px">
+        <button id="dirBtn" type="button">Choisir un dossier…</button>
+        <button id="importBtn" type="button">Ajouter des images…</button>
+      </div>
+      <input id="fileInput" type="file" accept="image/*" multiple hidden>
+      <input id="dirInput" type="file" webkitdirectory multiple hidden>
+      <div id="dirBox" class="dirbox" hidden>
+        <span id="dirName"></span>
+        <button id="grantBtn" type="button" class="primary" hidden>Autoriser l'accès au dossier</button>
+        <span class="tools"><button id="rescanBtn" type="button">Actualiser</button><button id="unlinkBtn" type="button">Délier</button></span>
+      </div>
+      <p class="hint" id="dirHint"></p>
+      <p id="mineMsg" class="message"></p>
+      <div id="mine" class="results"></div>
+    </section>
+
     <details id="diag">
       <summary>Résultat du test de l'API</summary>
       <pre id="diagText">Test en cours…</pre>
@@ -270,7 +303,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   <section class="desk" id="desk">
     <div class="sizer" id="sizer">
       <div class="page" id="page" aria-label="Feuille A4">
-        <div class="empty-note" id="emptyNote">Ajoute des pictogrammes depuis la recherche</div>
+        <div class="empty-note" id="emptyNote">Ajoute des pictogrammes depuis la recherche ou tes images</div>
         <div class="attrib">Pictogrammes : Sergio Palao. Origine : ARASAAC (https://arasaac.org). Licence : CC (BY-NC-SA). Propriété : Gouvernement d'Aragon (Espagne).</div>
       </div>
     </div>
@@ -382,6 +415,11 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   const WEB_FONTS = ["Atkinson Hyperlegible", "Andika", "Lexend", "Playwrite FR Moderne"];
   const fontStack = f => `"${f}", ${f === "Playwrite FR Moderne" || f === "Times New Roman" ? "serif" : "Arial, Helvetica, sans-serif"}`;
   const applyCase = t => state.text.casse === "uppercase" ? t.toLocaleUpperCase("fr") : state.text.casse === "lowercase" ? t.toLocaleLowerCase("fr") : t;
+  /* The user's own images, referenced by items as `img`: either copies kept in IndexedDB (key = uid),
+     or files read in place from a linked folder (key = "f:" + path inside the folder). */
+  const lib = new Map(), urls = new Map();
+  const BLANK = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+  const MISSING = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="#b5bfca" stroke-width=".3" stroke-dasharray=".8 .5"/><text x="5" y="6.6" font-size="5" text-anchor="middle" fill="#b5bfca" font-family="Arial">?</text></svg>');
   let state = load();
   let selected = null, selectedCell = null, scale = 1;
 
@@ -610,7 +648,10 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     el.className = "item" + (isGrid() ? " ingrid" : "") + (it.uid === selected ? " sel" : "");
     el.dataset.uid = it.uid;
     const img = document.createElement("img");
-    img.src = IMG(it.id, 500); img.alt = it.caption; img.draggable = false;
+    if (!it.img) img.src = IMG(it.id, 500);
+    else if (urls.has(it.img)) img.src = urls.get(it.img);
+    else { img.src = lib.has(it.img) ? BLANK : MISSING; libUrl(it.img).then(u => img.src = u, () => img.src = MISSING); }
+    img.alt = it.caption; img.draggable = false;
     const cap = document.createElement("div"); cap.className = "cap";
     const handle = document.createElement("div"); handle.className = "handle"; handle.title = "Redimensionner";
     const del = document.createElement("button");
@@ -745,28 +786,30 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     return { x: m, y: m };
   }
 
-  function addItem(id, caption, at) {
+  /* `src` is { id } for an ARASAAC picto or { img } for an imported image. Returns the item's uid, or null if the sheet is full. */
+  function addItem(src, caption, at, msg = $("searchMsg")) {
     if (isGrid()) {
       let cell = at && at.cell >= 0 ? at.cell : (selectedCell != null && !occupant(selectedCell) ? selectedCell : firstEmpty());
       if (cell < 0) {
-        $("searchMsg").className = "message err";
-        $("searchMsg").textContent = "La feuille est pleine. Réduis la taille des pictogrammes pour avoir plus de cases, ou glisse un picto sur une case remplie pour le remplacer.";
-        return;
+        msg.className = "message err";
+        msg.textContent = "La feuille est pleine. Réduis la taille des pictogrammes pour avoir plus de cases, ou glisse un picto sur une case remplie pour le remplacer.";
+        return null;
       }
-      const existing = occupant(cell);
-      if (existing) { existing.id = id; existing.caption = caption; }
-      else state.items.push({ uid: uid(), id, caption, cell, x: 10, y: 10, w: 45, showCaption: true, framed: false });
+      let it = occupant(cell);
+      if (it) { delete it.id; delete it.img; Object.assign(it, src, { caption }); }
+      else state.items.push(it = { uid: uid(), ...src, caption, cell, x: 10, y: 10, w: 45, showCaption: true, framed: false });
       setCell(null);
-      $("searchMsg").className = "message"; $("searchMsg").textContent = "";
+      msg.className = "message"; msg.textContent = "";
       save(); render();
-      return;
+      return it.uid;
     }
     const w = 45, d = dims();
     const pos = at && at.x != null ? at : freeSpot(w);
-    const it = { uid: uid(), id, caption, cell: null, showCaption: true, framed: state.frameAll, w,
+    const it = { uid: uid(), ...src, caption, cell: null, showCaption: true, framed: state.frameAll, w,
                  x: clamp(pos.x, 0, d.w - w), y: clamp(pos.y, 0, d.h - w * 1.22) };
     state.items.push(it);
     save(); render(); select(it.uid);
+    return it.uid;
   }
 
   function removeItem(id) {
@@ -965,6 +1008,12 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     }
   }
 
+  async function pictoPng(it) {
+    if (!it.img) return fetchPng(it.id);
+    const png = await redraw(await libBlob(it.img), { max: 800, square: true, type: "image/png" });
+    return new Uint8Array(await png.arrayBuffer());
+  }
+
   async function exportDocx() {
     if (!isGrid()) { alert("L'export Word fonctionne en mode Grille. Passe en mode Grille pour exporter."); return; }
     if (!window.docx) { alert("L'outil d'export Word n'a pas pu se charger. Vérifie la connexion internet, puis recharge la page."); return; }
@@ -974,11 +1023,12 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     const btn = $("exportBtn"), label = btn.textContent;
     btn.disabled = true; btn.textContent = "Préparation du fichier…";
     try {
-      const ids = [...new Set(placed.map(i => i.id))];
+      const keyOf = it => it.img ? "u:" + it.img : it.id;
+      const sources = new Map(placed.map(it => [keyOf(it), it]));
       const pngs = new Map();
-      await Promise.all(ids.map(async id => pngs.set(id, await fetchPng(id))));
+      await Promise.all([...sources].map(async ([k, it]) => pngs.set(k, await pictoPng(it))));
       const cells = Array(G.total).fill(null);
-      placed.forEach(it => cells[it.cell] = { caption: applyCase(it.caption), png: pngs.get(it.id) });
+      placed.forEach(it => cells[it.cell] = { caption: applyCase(it.caption), png: pngs.get(keyOf(it)) });
       const doc = buildDocx(window.docx, {
         orientation: state.orientation, cols: G.cols, rows: G.rows, cw: G.cw, ch: G.ch, gap: state.grid.gap,
         x0: G.x0, y0: G.y0, picto: G.picto, fs: G.fs, showCaption: state.grid.showCaption, lines: state.grid.lines,
@@ -1028,6 +1078,22 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   $("printBtn").addEventListener("click", () => { select(null); setCell(null); window.print(); });
 
   /* ---------- Search ---------- */
+  function resultButton(thumb, caption, src) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "result"; b.draggable = true; b.title = caption || "Sans légende";
+    const img = document.createElement("img"); img.loading = "lazy"; img.alt = "";
+    if (typeof thumb === "string") img.src = thumb;
+    else thumb.then(u => img.src = u, () => img.src = MISSING);
+    const s = document.createElement("span"); s.textContent = caption || "\u00a0";
+    b.append(img, s);
+    b.addEventListener("click", () => addItem(src, caption));
+    b.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("application/x-picto", JSON.stringify({ ...src, caption }));
+      e.dataTransfer.effectAllowed = "copy";
+    });
+    return b;
+  }
+
   async function search(term) {
     const msg = $("searchMsg"), res = $("results");
     msg.className = "message"; msg.textContent = "Recherche en cours…"; res.innerHTML = "";
@@ -1042,17 +1108,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
         : `${data.length} pictogramme${data.length > 1 ? "s" : ""} trouvé${data.length > 1 ? "s" : ""}.`;
       list.forEach(p => {
         const caption = (p.keywords && p.keywords[0] && p.keywords[0].keyword) || term;
-        const b = document.createElement("button");
-        b.type = "button"; b.className = "result"; b.draggable = true; b.title = caption;
-        const img = document.createElement("img"); img.loading = "lazy"; img.src = IMG(p._id, 300); img.alt = "";
-        const s = document.createElement("span"); s.textContent = caption;
-        b.append(img, s);
-        b.addEventListener("click", () => addItem(p._id, caption));
-        b.addEventListener("dragstart", e => {
-          e.dataTransfer.setData("application/x-picto", JSON.stringify({ id: p._id, caption }));
-          e.dataTransfer.effectAllowed = "copy";
-        });
-        res.appendChild(b);
+        res.appendChild(resultButton(IMG(p._id, 300), caption, { id: p._id }));
       });
     } catch (err) {
       msg.className = "message err";
@@ -1066,8 +1122,9 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   });
 
   let dropHover = -1;
+  const dragsFiles = e => e.dataTransfer.types.includes("Files");
   page.addEventListener("dragover", e => {
-    if (!e.dataTransfer.types.includes("application/x-picto")) return;
+    if (!e.dataTransfer.types.includes("application/x-picto") && !dragsFiles(e)) return;
     e.preventDefault();
     page.classList.add("drop");
     if (isGrid()) {
@@ -1088,14 +1145,267 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     page.classList.remove("drop");
     page.querySelector(".cell.hover")?.classList.remove("hover"); dropHover = -1;
     const raw = e.dataTransfer.getData("application/x-picto");
-    if (!raw) return;
+    if (!raw && !e.dataTransfer.files.length) return;
     e.preventDefault();
-    const { id, caption } = JSON.parse(raw);
-    const p = pagePoint(e);
-    if (isGrid()) {
-      const c = cellAt(p.x, p.y);
-      addItem(id, caption, c >= 0 ? { cell: c } : null);
-    } else addItem(id, caption, { x: p.x - 22.5, y: p.y - 22.5 });
+    const p = pagePoint(e), c = isGrid() ? cellAt(p.x, p.y) : -1;
+    const at = isGrid() ? (c >= 0 ? { cell: c } : null) : { x: p.x - 22.5, y: p.y - 22.5 };
+    if (!raw) { importFiles(e.dataTransfer.files, at); return; }
+    const { caption, ...src } = JSON.parse(raw);
+    addItem(src, caption, at);
+  });
+  /* Files dropped anywhere else in the window are imported too, instead of the browser opening them. */
+  window.addEventListener("dragover", e => { if (dragsFiles(e)) e.preventDefault(); });
+  window.addEventListener("drop", e => {
+    if (e.defaultPrevented || !dragsFiles(e)) return;
+    e.preventDefault();
+    importFiles(e.dataTransfer.files, null);
+  });
+
+  /* ---------- My images ---------- */
+  /* Chrome and Edge can read a folder in place and remember it; elsewhere the folder's images
+     are copied, lightened, into IndexedDB. Single images (button, drop, paste) are always copied. */
+  const canLink = typeof window.showDirectoryPicker === "function";
+  const IMG_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i;
+  let dbp, persisted = true, dir = null, dirOk = false;
+  const openDb = () => dbp ??= new Promise((res, rej) => {
+    const r = indexedDB.open("planche-pictos", 2);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if (!db.objectStoreNames.contains("images")) db.createObjectStore("images", { keyPath: "key" });
+      if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  async function idb(store, mode, fn) {
+    const db = await openDb();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, mode), req = fn(tx.objectStore(store));
+      tx.oncomplete = () => res(req.result);
+      tx.onerror = tx.onabort = () => rej(tx.error);
+    });
+  }
+
+  async function libBlob(key) {
+    const e = lib.get(key);
+    if (!e) throw new Error(dir && !dirOk ? "autorise d'abord l'accès au dossier lié" : "une de tes images n'est plus disponible");
+    return e.blob ?? e.handle.getFile();
+  }
+  const pending = new Map();
+  function libUrl(key) {
+    if (urls.has(key)) return Promise.resolve(urls.get(key));
+    if (!pending.has(key)) pending.set(key, libBlob(key).then(b => {
+      const u = URL.createObjectURL(b);
+      urls.set(key, u); pending.delete(key);
+      return u;
+    }, err => { pending.delete(key); throw err; }));
+    return pending.get(key);
+  }
+  function forgetUrl(key) {
+    if (urls.has(key)) URL.revokeObjectURL(urls.get(key));
+    urls.delete(key);
+  }
+
+  /* "chat_noir.jpg" gives "chat noir"; a pasted "image.png" gives no caption. */
+  const captionOf = name => /^image\.\w+$/i.test(name) ? "" : name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+  const norm = t => t.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[_\-./\\]+/g, " ");
+  const addEntry = e => lib.set(e.key, { ...e, words: norm(e.path || e.name) });
+
+  /* Redraws an image at most `max` px wide or high, optionally centred on a transparent square. */
+  async function redraw(blob, { max, square, type, quality }) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      let w = img.naturalWidth || max, h = img.naturalHeight || max;
+      const k = Math.min(1, max / Math.max(w, h));
+      w = Math.round(w * k); h = Math.round(h * k);
+      const c = document.createElement("canvas");
+      c.width = square ? Math.max(w, h) : w; c.height = square ? Math.max(w, h) : h;
+      c.getContext("2d").drawImage(img, (c.width - w) / 2, (c.height - h) / 2, w, h);
+      return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("conversion")), type, quality));
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  /* A lightened copy: WebP keeps transparency and is much smaller than PNG (Safari falls back to PNG). */
+  async function storeCopy(file, path = "") {
+    const blob = await redraw(file, { max: 800, type: "image/webp", quality: 0.85 });
+    const e = { key: uid(), name: captionOf(file.name), path, sig: path && `${path}|${file.size}|${file.lastModified}`, blob, added: Date.now() };
+    try { await idb("images", "readwrite", s => s.put(e)); } catch { persisted = false; }
+    addEntry(e);
+    return e;
+  }
+
+  async function loadLibrary() {
+    const copies = await idb("images", "readonly", s => s.getAll());
+    copies.sort((a, b) => a.added - b.added).forEach(addEntry);
+    if (!canLink) return;
+    dir = await idb("meta", "readonly", s => s.get("dir")) || null;
+    if (dir && await dir.queryPermission({ mode: "read" }) === "granted") await scanDir();
+  }
+
+  async function scanDir() {
+    const found = [];
+    const walk = async (h, prefix) => {
+      for await (const [name, child] of h.entries()) {
+        if (name.startsWith(".")) continue;
+        if (child.kind === "directory") await walk(child, prefix + name + "/");
+        else if (IMG_EXT.test(name)) found.push({ key: "f:" + prefix + name, name: captionOf(name), path: prefix + name, handle: child });
+      }
+    };
+    $("mineMsg").className = "message"; $("mineMsg").textContent = "Lecture du dossier…";
+    try {
+      await walk(dir, "");
+      [...lib.keys()].filter(k => k.startsWith("f:")).forEach(k => { lib.delete(k); forgetUrl(k); });
+      found.sort((a, b) => a.path.localeCompare(b.path, "fr")).forEach(addEntry);
+      dirOk = true;
+      $("mineMsg").textContent = "";
+    } catch (err) {
+      dirOk = false;
+      $("mineMsg").className = "message err";
+      $("mineMsg").textContent = "Le dossier n'a pas pu être lu (" + err.message + "). Il a peut-être été déplacé ou renommé : choisis-le à nouveau.";
+    }
+  }
+
+  async function chooseDir() {
+    if (!canLink) { $("dirInput").click(); return; }
+    let h;
+    try { h = await window.showDirectoryPicker({ id: "planche-images", mode: "read" }); } catch { return; }
+    dir = h;
+    idb("meta", "readwrite", s => s.put(h, "dir")).catch(() => {});
+    await scanDir();
+    render(); renderMine();
+  }
+
+  async function copyFolder(files) {
+    const list = [...files].filter(f => IMG_EXT.test(f.name) && !f.webkitRelativePath.split("/").some(p => p.startsWith(".")));
+    const known = new Set([...lib.values()].map(e => e.sig).filter(Boolean));
+    const todo = list.filter(f => !known.has(`${f.webkitRelativePath}|${f.size}|${f.lastModified}`));
+    const msg = $("mineMsg");
+    msg.className = "message";
+    let failed = 0;
+    for (let i = 0; i < todo.length; i++) {
+      msg.textContent = `Copie des images : ${i + 1} sur ${todo.length}…`;
+      try { await storeCopy(todo[i], todo[i].webkitRelativePath); } catch { failed++; }
+    }
+    renderMine();
+    const skipped = list.length - todo.length;
+    msg.className = "message" + (failed || !persisted ? " err" : "");
+    msg.textContent = `${todo.length - failed} ${todo.length - failed > 1 ? "images ajoutées" : "image ajoutée"}`
+      + (skipped ? `, ${skipped} déjà présente${skipped > 1 ? "s" : ""}` : "") + (failed ? `, ${failed} illisible${failed > 1 ? "s" : ""}` : "") + "."
+      + (!persisted ? " Ce navigateur ne permet pas de garder les images : elles disparaîtront à la fermeture de la page." : "");
+  }
+
+  /* Single images are copied and placed on the sheet straight away. */
+  async function importFiles(files, at) {
+    const msg = $("mineMsg");
+    const list = [...files].filter(f => f.type.startsWith("image/"));
+    if (!list.length) { msg.className = "message err"; msg.textContent = "Ce fichier n'est pas une image."; return; }
+    msg.className = "message"; msg.textContent = "Import en cours…";
+    const added = [], failed = [];
+    for (const f of list) {
+      try { added.push(await storeCopy(f)); } catch { failed.push(f.name); }
+    }
+    $("mq").value = ""; renderMine();
+    let last = null, full = false;
+    for (const e of added) {
+      const u = addItem({ img: e.key }, e.name, at, msg);
+      if (!u) { full = true; break; }
+      last = u;
+      at = !isGrid() && at ? { x: at.x + 8, y: at.y + 8 } : null;
+    }
+    if (last) select(last);
+    const notes = [];
+    if (full) notes.push("La feuille est pleine : les images restent dans « Mes images ».");
+    if (failed.length) notes.push(`Impossible de lire : ${failed.join(", ")}.`);
+    if (!persisted) notes.push("Ce navigateur ne permet pas de garder les images : elles disparaîtront à la fermeture de la page.");
+    msg.className = "message" + (notes.length ? " err" : "");
+    msg.textContent = notes.join(" ");
+  }
+
+  function dropFromSheet(keys, question) {
+    const used = state.items.filter(i => keys.has(i.img)).length;
+    const note = used > 1 ? `\n\n${used} pictos de la feuille en viennent et seront aussi enlevés.` : used ? "\n\nUn picto de la feuille en vient et sera aussi enlevé." : "";
+    if (!confirm(question + note)) return false;
+    state.items = state.items.filter(i => !keys.has(i.img));
+    if (!current()) selected = null;
+    return true;
+  }
+  async function removeCopy(key) {
+    if (!dropFromSheet(new Set([key]), "Supprimer cette image de « Mes images » ?")) return;
+    lib.delete(key); forgetUrl(key);
+    idb("images", "readwrite", s => s.delete(key)).catch(() => {});
+    save(); render(); renderMine();
+  }
+  async function unlinkDir() {
+    const keys = new Set([...lib.keys()].filter(k => k.startsWith("f:")));
+    if (!dropFromSheet(keys, "Délier ce dossier ? Ses fichiers ne seront pas touchés.")) return;
+    keys.forEach(k => { lib.delete(k); forgetUrl(k); });
+    dir = null; dirOk = false;
+    idb("meta", "readwrite", s => s.delete("dir")).catch(() => {});
+    save(); render(); renderMine();
+  }
+
+  function renderMine() {
+    const files = [...lib.keys()].filter(k => k.startsWith("f:")).length;
+    $("dirBox").hidden = !dir;
+    if (dir) {
+      $("dirName").textContent = `Dossier lié : « ${dir.name} »` + (dirOk ? ` (${files} image${files > 1 ? "s" : ""})` : "");
+      $("grantBtn").hidden = dirOk;
+      $("rescanBtn").hidden = !dirOk;
+    }
+    $("dirBtn").textContent = dir ? "Changer de dossier…" : "Choisir un dossier…";
+    $("dirHint").textContent = canLink
+      ? "Les images du dossier et de ses sous-dossiers sont lues sur place, sans copie. Rien n'est envoyé sur internet. Tu peux aussi glisser des images sur la feuille ou en coller une (Ctrl+V)."
+      : "Ce navigateur ne sait pas lire un dossier sur place : ses images sont copiées, en version allégée, dans le navigateur. Rien n'est envoyé sur internet. Tu peux aussi glisser des images sur la feuille ou en coller une (Ctrl+V).";
+
+    const q = norm($("mq").value).trim(), words = q.split(/\s+/).filter(Boolean);
+    const all = [...lib.values()];
+    const hits = words.length ? all.filter(e => words.every(w => e.words.includes(w))) : all;
+    if (words.length) hits.sort((a, b) => (norm(b.name).startsWith(words[0]) - norm(a.name).startsWith(words[0])) || a.words.localeCompare(b.words, "fr"));
+    const shown = hits.slice(0, 90);
+    const box = $("mine");
+    box.innerHTML = "";
+    shown.forEach(e => {
+      const wrap = document.createElement("div"); wrap.className = "mine";
+      const b = resultButton(libUrl(e.key), e.name, { img: e.key });
+      if (e.path) b.title = e.path;
+      wrap.append(b);
+      if (e.blob) {
+        const rm = document.createElement("button");
+        rm.type = "button"; rm.className = "rm"; rm.textContent = "×";
+        rm.title = "Supprimer cette image"; rm.setAttribute("aria-label", rm.title);
+        rm.addEventListener("click", () => removeCopy(e.key));
+        wrap.append(rm);
+      }
+      box.appendChild(wrap);
+    });
+    const count = $("mineCount") || Object.assign(document.createElement("p"), { id: "mineCount", className: "message" });
+    box.before(count);
+    count.textContent = !all.length ? "" : words.length
+      ? (hits.length ? `${hits.length} image${hits.length > 1 ? "s" : ""} trouvée${hits.length > 1 ? "s" : ""}${hits.length > shown.length ? `, les ${shown.length} premières sont affichées` : ""}.` : `Aucune image pour « ${$("mq").value.trim()} ».`)
+      : `${all.length} image${all.length > 1 ? "s" : ""}${all.length > shown.length ? `, les ${shown.length} premières sont affichées : tape un mot pour chercher` : ""}.`;
+  }
+
+  $("mq").addEventListener("input", renderMine);
+  $("dirBtn").addEventListener("click", chooseDir);
+  $("dirInput").addEventListener("change", e => { copyFolder(e.target.files); e.target.value = ""; });
+  $("grantBtn").addEventListener("click", async () => {
+    if (await dir.requestPermission({ mode: "read" }) !== "granted") return;
+    await scanDir();
+    render(); renderMine();
+  });
+  $("rescanBtn").addEventListener("click", async () => { await scanDir(); render(); renderMine(); });
+  $("unlinkBtn").addEventListener("click", unlinkDir);
+  $("importBtn").addEventListener("click", () => $("fileInput").click());
+  $("fileInput").addEventListener("change", e => { importFiles(e.target.files, null); e.target.value = ""; });
+  document.addEventListener("paste", e => {
+    const files = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith("image/"));
+    if (!files.length) return;
+    if (e.target.matches("input, textarea") && e.clipboardData.types.includes("text/plain")) return;
+    e.preventDefault();
+    importFiles(files, null);
   });
 
   /* ---------- API test ---------- */
@@ -1134,8 +1444,10 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   }
   $("retestBtn").addEventListener("click", testApi);
 
-  if (isGrid()) reflow();
-  render();
+  loadLibrary().catch(() => { persisted = false; }).finally(() => {
+    if (isGrid()) reflow();
+    render(); renderMine();
+  });
   testApi();
 })();
 </script>

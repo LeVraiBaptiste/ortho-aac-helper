@@ -11,6 +11,11 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 ## Fonctionnalités
 
 - **Recherche de pictogrammes** dans la base ARASAAC, en français, anglais, espagnol, italien, allemand ou portugais.
+- **Mes images** : utiliser ses propres images (photos, dessins…), avec une recherche par nom de fichier ou de dossier, comme pour ARASAAC.
+  - Sous Chrome ou Edge, on lie un dossier : ses images et celles de ses sous-dossiers sont lues sur place, sans copie, et le dossier est retenu d'une visite à l'autre.
+  - Sous Firefox ou Safari, les images du dossier sont copiées dans le navigateur, en version allégée.
+  - On peut aussi ajouter une image seule par bouton, glisser-déposer ou copier-coller (Ctrl+V).
+  - Tout reste sur l'ordinateur : rien n'est envoyé sur internet.
 - **Deux modes de mise en page** :
   - **Grille** : le nombre de colonnes et de lignes se calcule tout seul à partir de la taille des cases (toujours carrées, la légende prend sa place sur l'image), des marges et de l'espacement. On échange deux pictos en les glissant l'un sur l'autre.
   - **Placement libre** : chaque picto se déplace et se redimensionne où l'on veut sur la feuille.
