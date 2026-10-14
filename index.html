@@ -381,6 +381,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
       <p id="mineMsg" class="message"></p>
       <p class="empty" id="mineEmpty"></p>
       <div id="mine" class="results"></div>
+      <button id="clearMineBtn" type="button" class="danger" style="margin-top:18px; width:100%" hidden>Enlever toutes mes images</button>
     </section>
   </aside>
 
@@ -1527,7 +1528,23 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     save(); render(); renderMine();
   }
 
+  /* Empties "Mes images": copies are deleted from the browser, the folder is unlinked (its files stay untouched). */
+  async function clearMine() {
+    const keys = new Set(lib.keys());
+    const copies = [...lib.values()].filter(e => e.blob).length;
+    const parts = [];
+    if (copies) parts.push(`${copies > 1 ? `les ${copies} images copiées` : "l'image copiée"} dans le navigateur ${copies > 1 ? "seront supprimées" : "sera supprimée"}`);
+    if (dir) parts.push(`le dossier « ${dir.name} » sera délié, sans toucher à ses fichiers`);
+    if (!dropFromSheet(keys, `Enlever toutes tes images de l'application ?\n\n${parts.join(", et ")}.`.replace(/\n\n(.)/, (m, c) => "\n\n" + c.toUpperCase()))) return;
+    keys.forEach(k => { lib.delete(k); forgetUrl(k); });
+    dir = null; dirOk = false;
+    await Promise.all([idb("images", "readwrite", s => s.clear()), idb("meta", "readwrite", s => s.delete("dir"))]).catch(() => {});
+    $("mq").value = ""; $("mineMsg").textContent = "";
+    save(); render(); renderMine();
+  }
+
   function renderMine() {
+    $("clearMineBtn").hidden = !lib.size && !dir;
     const files = [...lib.keys()].filter(k => k.startsWith("f:")).length;
     $("dirBox").hidden = !dir;
     if (dir) {
@@ -1580,6 +1597,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   });
   $("rescanBtn").addEventListener("click", async () => { await scanDir(); render(); renderMine(); });
   $("unlinkBtn").addEventListener("click", unlinkDir);
+  $("clearMineBtn").addEventListener("click", clearMine);
   $("importBtn").addEventListener("click", () => $("fileInput").click());
   $("fileInput").addEventListener("change", e => { importFiles(e.target.files, null); e.target.value = ""; });
   document.addEventListener("paste", e => {
