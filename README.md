@@ -39,6 +39,6 @@ Bibliothèques utilisées : [docx](https://github.com/dolanmiu/docx) pour l'expo
 
 ## Licence
 
-Projet entièrement open source, sous licence [MIT](LICENSE) : libre à vous de l'utiliser, le modifier, le copier et le redistribuer. Les contributions (issues, pull requests) sont les bienvenues.
+Projet entièrement open source, sous licence [GNU GPL v3](LICENSE) : libre à vous de l'utiliser, l'étudier, le modifier et le redistribuer, à condition que toute version modifiée et redistribuée reste elle aussi sous GPL v3, avec son code source. Les contributions (issues, pull requests) sont les bienvenues.
 
 Cette licence couvre le code de l'outil. Les pictogrammes ARASAAC restent sous leur propre licence CC BY-NC-SA (voir ci-dessus).
