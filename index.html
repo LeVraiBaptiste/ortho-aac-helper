@@ -517,7 +517,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   const clamp = (v, a, b) => Math.min(Math.max(v, a), Math.max(a, b));
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-  const DEFAULT_GRID = { size: 40, margin: 10, gap: 6, showCaption: true, lines: false };
+  const DEFAULT_GRID = { size: 40, margin: 0, gap: 0, showCaption: true, lines: false };
   const DEFAULT_TEXT = { font: "Arial", casse: "none" };
   const WEB_FONTS = ["Atkinson Hyperlegible", "Andika", "Lexend", "Playwrite FR Moderne"];
   const fontStack = f => `"${f}", ${f === "Playwrite FR Moderne" || f === "Times New Roman" ? "serif" : "Arial, Helvetica, sans-serif"}`;
