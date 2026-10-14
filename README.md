@@ -6,6 +6,8 @@ Petit outil web pour composer et imprimer des planches de pictogrammes [ARASAAC]
 
 Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte, pas de serveur. La planche est sauvegardée automatiquement dans le navigateur.
 
+> Pour l'export Word avec une police web (Andika, Lexend, Atkinson Hyperlegible, Playwrite), installer la police sur l'ordinateur depuis [fonts.google.com](https://fonts.google.com), sinon Word la remplacera.
+
 ## Fonctionnalités
 
 - **Recherche de pictogrammes** dans la base ARASAAC, en français, anglais, espagnol, italien, allemand ou portugais.
@@ -27,19 +29,6 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 | Suppr / Retour arrière | Retirer le picto sélectionné |
 | Échap | Désélectionner |
 
-## Utilisation en local
-
-Il suffit d'ouvrir `index.html` dans un navigateur récent. Une connexion internet reste nécessaire pour interroger l'API ARASAAC et charger les polices.
-
-Si le test de l'API échoue en ouvrant le fichier directement (`file://`), lancer un petit serveur local :
-
-```sh
-python3 -m http.server 8000
-# puis ouvrir http://localhost:8000
-```
-
-> Pour l'export Word avec une police web (Andika, Lexend, Atkinson Hyperlegible, Playwrite), installer la police sur l'ordinateur depuis [fonts.google.com](https://fonts.google.com), sinon Word la remplacera.
-
 ## Crédits et licence des pictogrammes
 
 Pictogrammes : Sergio Palao. Origine : [ARASAAC](https://arasaac.org). Licence : [CC BY-NC-SA](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.fr). Propriété : Gouvernement d'Aragon (Espagne).
@@ -47,3 +36,9 @@ Pictogrammes : Sergio Palao. Origine : [ARASAAC](https://arasaac.org). Licence :
 Les planches réalisées avec cet outil doivent donc rester à usage **non commercial** et conserver cette mention.
 
 Bibliothèques utilisées : [docx](https://github.com/dolanmiu/docx) pour l'export Word, polices [Google Fonts](https://fonts.google.com).
+
+## Licence
+
+Projet entièrement open source, sous licence [MIT](LICENSE) : libre à vous de l'utiliser, le modifier, le copier et le redistribuer. Les contributions (issues, pull requests) sont les bienvenues.
+
+Cette licence couvre le code de l'outil. Les pictogrammes ARASAAC restent sous leur propre licence CC BY-NC-SA (voir ci-dessus).
