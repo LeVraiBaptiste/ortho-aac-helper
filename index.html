@@ -256,9 +256,9 @@ body:not(.grid-mode) .grid-only { display: none !important; }
 
       <div class="grid-only">
         <div class="dims">
-          <label class="field" style="grid-column: 1 / -1">Taille des pictogrammes
+          <label class="field" style="grid-column: 1 / -1">Taille des cases
             <span class="sizerow">
-              <input id="pictoSize" type="range" min="10" max="180" step="1" aria-label="Taille des pictogrammes en millimètres">
+              <input id="pictoSize" type="range" min="10" max="180" step="1" aria-label="Taille des cases en millimètres">
               <span class="mm"><input id="pictoSizeNum" type="number" min="10" max="180" step="1"> mm</span>
             </span>
           </label>
@@ -385,12 +385,13 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   const isGrid = () => state.mode === "grid";
 
   /* ---------- Grid geometry ---------- */
-  /* The picto size drives everything: the grid is as many cells as fit, centred on the page. */
+  /* The cell size drives everything: cells stay square, the caption takes its room from the picto,
+     and the grid is as many cells as fit, centred on the page. */
   function geom(g = state.grid) {
     const d = dims();
     const fs = clamp(g.size * 0.13, 2.5, 9);
     const capH = g.showCaption ? fs * 1.15 * 2 + 0.8 : 0;
-    const cw = g.size, ch = g.size + capH;
+    const cw = g.size, ch = g.size;
     const top = g.margin, bottom = Math.max(g.margin, 9);
     const availW = d.w - 2 * g.margin, availH = d.h - top - bottom;
     const cols = Math.max(0, Math.floor((availW + g.gap) / (cw + g.gap) + 1e-9));
@@ -399,7 +400,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     const gridH = rows * ch + Math.max(0, rows - 1) * g.gap;
     const x0 = g.margin + (availW - gridW) / 2, y0 = top + (availH - gridH) / 2;
     return {
-      cw, ch, pad: 0, fs, capH, picto: g.size, cols, rows, total: cols * rows,
+      cw, ch, pad: 0, fs, capH, picto: Math.max(1, g.size - capH), cols, rows, total: cols * rows,
       x0, y0, gridW, gridH, leftW: availW - gridW, leftH: availH - gridH,
       at: i => ({ x: x0 + (i % cols) * (cw + g.gap), y: y0 + Math.floor(i / cols) * (ch + g.gap) })
     };

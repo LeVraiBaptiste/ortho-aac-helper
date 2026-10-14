@@ -12,7 +12,7 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 
 - **Recherche de pictogrammes** dans la base ARASAAC, en français, anglais, espagnol, italien, allemand ou portugais.
 - **Deux modes de mise en page** :
-  - **Grille** : le nombre de colonnes et de lignes se calcule tout seul à partir de la taille des pictos, des marges et de l'espacement. On échange deux pictos en les glissant l'un sur l'autre.
+  - **Grille** : le nombre de colonnes et de lignes se calcule tout seul à partir de la taille des cases (toujours carrées, la légende prend sa place sur l'image), des marges et de l'espacement. On échange deux pictos en les glissant l'un sur l'autre.
   - **Placement libre** : chaque picto se déplace et se redimensionne où l'on veut sur la feuille.
 - **Légendes** : affichées ou non, modifiables, en écriture normale, MAJUSCULES ou minuscules.
 - **Polices adaptées à la lecture** : Atkinson Hyperlegible, Andika, Lexend, Playwrite FR Moderne (cursive), ainsi que Arial, Verdana, Comic Sans MS, Times New Roman.
