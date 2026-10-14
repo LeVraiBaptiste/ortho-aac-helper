@@ -22,7 +22,7 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 - **Légendes** : affichées ou non, modifiables, en écriture normale, MAJUSCULES ou minuscules.
 - **Polices adaptées à la lecture** : Atkinson Hyperlegible, Andika, Lexend, Playwrite FR Moderne (cursive), ainsi que Arial, Verdana, Comic Sans MS, Times New Roman.
 - **Lignes de découpe** en option, avec la taille des cartes une fois découpées.
-- **Format A4** portrait ou paysage.
+- **Format A4** portrait ou paysage, avec ou sans la mention ARASAAC en bas de page.
 - **Impression** directe, ou **export Word (.docx)** pour retoucher la planche ensuite.
 - **Thème clair / sombre** selon le réglage du système.
 - **Interface adaptable** : la bibliothèque à gauche et les réglages à droite se masquent pour agrandir la feuille ; sur un petit écran, ils s'ouvrent par-dessus.
@@ -42,7 +42,7 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 
 Pictogrammes : Sergio Palao. Origine : [ARASAAC](https://arasaac.org). Licence : [CC BY-NC-SA](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.fr). Propriété : Gouvernement d'Aragon (Espagne).
 
-Les planches réalisées avec cet outil doivent donc rester à usage **non commercial** et conserver cette mention.
+Les planches réalisées avec cet outil doivent donc rester à usage **non commercial** et conserver cette mention. La mention est ajoutée en bas de chaque planche. Elle peut être retirée dans les réglages, mais seulement pour un usage personnel.
 
 Bibliothèques utilisées : [docx](https://github.com/dolanmiu/docx) pour l'export Word, polices [Google Fonts](https://fonts.google.com).
 

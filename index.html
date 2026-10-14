@@ -192,8 +192,6 @@ body.hide-left .panel.left, body.hide-right .panel.right { display: none; }
 .textopts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
 .checks + .textopts { margin-top: 14px; }
 .textopts select { width: 100%; font-weight: 400; }
-.selgroup { background: var(--select-soft); }
-.selgroup h3 { color: var(--select); }
 .selcard {
   position: fixed; z-index: 30; width: min(260px, calc(100vw - 16px)); padding: 12px 16px 14px;
   border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink);
@@ -242,6 +240,7 @@ body.hide-left .panel.left, body.hide-right .panel.right { display: none; }
   position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
   color: #8a96a3; font-size: 6mm; padding: 30mm; pointer-events: none;
 }
+.page.nocredit .attrib { display: none; }
 .attrib {
   position: absolute; left: 8mm; right: 8mm; bottom: 3.5mm; font-size: 2.3mm; color: #666;
   line-height: 1.3; text-align: center; pointer-events: none;
@@ -431,13 +430,14 @@ body:not(.grid-mode) .grid-only { display: none !important; }
       <p class="hint grid-only">Glisse-le sur une autre case pour les échanger, ou utilise les flèches. Suppr pour l'enlever.</p>
       <p class="hint free-only">Flèches pour le déplacer de 1 mm (Maj : 5 mm), Suppr pour l'enlever.</p>
     </div>
+    <div class="selcard" id="cellPanel" role="dialog" aria-label="Case sélectionnée" hidden>
+      <div class="top"><h3>Case sélectionnée</h3>
+        <button id="cellClose" class="icon" type="button" title="Fermer (Échap)" aria-label="Fermer"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <p class="hint" style="margin:0">Le prochain pictogramme choisi dans la bibliothèque ira dans cette case.</p>
+    </div>
   </section>
 
   <aside class="panel right" id="rightPanel" aria-label="Réglages">
-    <div class="group selgroup" id="cellPanel" hidden>
-      <h3>Case sélectionnée</h3>
-      <p class="hint" style="margin:0">Le prochain pictogramme choisi dans la bibliothèque ira dans cette case.</p>
-    </div>
 
     <div class="group">
       <h3>Feuille A4</h3>
@@ -445,6 +445,10 @@ body:not(.grid-mode) .grid-only { display: none !important; }
         <button type="button" id="orientPortrait">Portrait</button>
         <button type="button" id="orientLandscape">Paysage</button>
       </div>
+      <div class="checks">
+        <label><input id="credit" type="checkbox"> Mention ARASAAC en bas de page</label>
+      </div>
+      <p class="hint" id="creditHint" hidden>La licence des pictogrammes ARASAAC demande de citer leur origine. Sans cette mention, garde la planche pour un usage personnel.</p>
     </div>
     <div class="group">
       <h3>Placement</h3>
@@ -549,16 +553,17 @@ body:not(.grid-mode) .grid-only { display: none !important; }
         st.grid = { ...DEFAULT_GRID, size: g.size ?? DEFAULT_GRID.size, margin: g.margin ?? DEFAULT_GRID.margin,
                     gap: g.gap ?? DEFAULT_GRID.gap, showCaption: g.showCaption ?? true, lines: g.lines ?? !!g.borders };
         st.text = { ...DEFAULT_TEXT, ...st.text };
+        st.credit ??= true;
         return st;
       }
       const old = localStorage.getItem("planche-pictos-v1");
       if (old) {
         const o = JSON.parse(old);
         return { orientation: o.orientation || "portrait", mode: "free", snap: o.snap ?? true,
-                 frameAll: !!o.frameAll, grid: { ...DEFAULT_GRID }, text: { ...DEFAULT_TEXT }, items: o.items || [] };
+                 frameAll: !!o.frameAll, credit: true, grid: { ...DEFAULT_GRID }, text: { ...DEFAULT_TEXT }, items: o.items || [] };
       }
     } catch {}
-    return { orientation: "portrait", mode: "grid", snap: true, frameAll: false, grid: { ...DEFAULT_GRID }, text: { ...DEFAULT_TEXT }, items: [] };
+    return { orientation: "portrait", mode: "grid", snap: true, frameAll: false, credit: true, grid: { ...DEFAULT_GRID }, text: { ...DEFAULT_TEXT }, items: [] };
   }
   /* Every change goes through save(): the previous state is kept for Ctrl+Z.
      Changes less than 600 ms apart (typing, dragging, sliders) make a single step. */
@@ -600,7 +605,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     const fs = clamp(g.size * 0.13, 2.5, 9);
     const capH = g.showCaption ? fs * 1.15 * 2 + 0.8 : 0;
     const cw = g.size, ch = g.size;
-    const top = g.margin, bottom = Math.max(g.margin, 9);
+    const top = g.margin, bottom = state.credit ? Math.max(g.margin, 9) : g.margin;
     const availW = d.w - 2 * g.margin, availH = d.h - top - bottom;
     const cols = Math.max(0, Math.floor((availW + g.gap) / (cw + g.gap) + 1e-9));
     const rows = Math.max(0, Math.floor((availH + g.gap) / (ch + g.gap) + 1e-9));
@@ -720,6 +725,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     } else {
       state.items.forEach(it => page.appendChild(makeItem(it)));
     }
+    if (selectedCell != null && !page.querySelector(".cell.target")) setCell(null);
 
     $("emptyNote").style.display = !isGrid() && !state.items.length ? "" : "none";
     $("orientPortrait").setAttribute("aria-pressed", state.orientation === "portrait");
@@ -734,6 +740,8 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     $("capFont").value = state.text.font; $("capCase").value = state.text.casse;
     $("fontHint").hidden = !WEB_FONTS.includes(state.text.font);
     $("snap").checked = state.snap; $("frameAll").checked = state.frameAll;
+    page.classList.toggle("nocredit", !state.credit);
+    $("credit").checked = state.credit; $("creditHint").hidden = state.credit;
     updateInfo();
     fit();
     updateSelbar();
@@ -937,6 +945,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     selectedCell = i;
     page.querySelectorAll(".cell").forEach(c => c.classList.toggle("target", +c.dataset.cell === i));
     $("cellPanel").hidden = i == null;
+    placeSel();
   }
   function selectCell(i) {
     select(null);
@@ -957,10 +966,11 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     $("selFrame").checked = !!it.framed;
     placeSel();
   }
-  /* The card floats beside the selected picto: to its right, else left, below or above, inside the visible desk. */
+  /* The open card floats beside the selected picto or cell: to its right, else left, below or above, inside the visible desk. */
   function placeSel() {
-    const card = $("selPanel"), el = selected && page.querySelector(`.item[data-uid="${selected}"]`);
-    if (card.hidden || !el) return;
+    const card = !$("selPanel").hidden ? $("selPanel") : !$("cellPanel").hidden ? $("cellPanel") : null;
+    const el = card && (selected ? page.querySelector(`.item[data-uid="${selected}"]`) : page.querySelector(".cell.target"));
+    if (!el) return;
     const r = el.getBoundingClientRect(), c = canvas.getBoundingClientRect();
     const w = card.offsetWidth, h = card.offsetHeight, m = 8, g = 12;
     const fitX = x => clamp(x, c.left + m, Math.max(c.left + m, c.right - w - m));
@@ -1095,6 +1105,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   });
   $("selDel").addEventListener("click", () => selected && removeItem(selected));
   $("selClose").addEventListener("click", () => select(null));
+  $("cellClose").addEventListener("click", () => setCell(null));
 
   document.addEventListener("keydown", e => {
     const k = e.key.toLowerCase();
@@ -1140,7 +1151,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     const cutW = P.cw + P.gap, cutH = P.ch + P.gap;
     const left = Math.max(0, P.x0 - P.gap / 2), top = Math.max(0, P.y0 - P.gap / 2);
     const right = Math.max(0, d.w - left - P.cols * cutW);
-    const bottom = Math.max(0, d.h - top - P.rows * cutH - 7);
+    const bottom = Math.max(0, d.h - top - P.rows * cutH - (P.attribution ? 7 : 1));
     const line = P.lines
       ? { style: D.BorderStyle.SINGLE, size: 6, color: "111111" }
       : { style: D.BorderStyle.NONE, size: 0, color: "FFFFFF" };
@@ -1180,10 +1191,14 @@ body:not(.grid-mode) .grid-only { display: none !important; }
       borders,
       rows
     });
-    const attrib = new D.Paragraph({
-      alignment: D.AlignmentType.CENTER, spacing: { before: 60, after: 0 },
-      children: [new D.TextRun({ text: P.attribution, font: "Arial", size: 13, color: "666666" })]
-    });
+    /* Word always keeps a paragraph after a table: without the credit line it is a tiny empty one. */
+    const attrib = P.attribution
+      ? new D.Paragraph({
+          alignment: D.AlignmentType.CENTER, spacing: { before: 60, after: 0 },
+          children: [new D.TextRun({ text: P.attribution, font: "Arial", size: 13, color: "666666" })]
+        })
+      : new D.Paragraph({ spacing: { before: 0, after: 0, line: 20, lineRule: D.LineRuleType.EXACT },
+                          children: [new D.TextRun({ text: "", size: 2 })] });
     return new D.Document({
       creator: "Planche de pictogrammes",
       title: "Planche de pictogrammes ARASAAC",
@@ -1236,7 +1251,7 @@ body:not(.grid-mode) .grid-only { display: none !important; }
       const doc = buildDocx(window.docx, {
         orientation: state.orientation, cols: G.cols, rows: G.rows, cw: G.cw, ch: G.ch, gap: state.grid.gap,
         x0: G.x0, y0: G.y0, picto: G.picto, fs: G.fs, showCaption: state.grid.showCaption, lines: state.grid.lines,
-        font: state.text.font, cells, attribution: document.querySelector(".attrib").textContent
+        font: state.text.font, cells, attribution: state.credit ? document.querySelector(".attrib").textContent : ""
       });
       const blob = await window.docx.Packer.toBlob(doc);
       const a = document.createElement("a");
@@ -1282,6 +1297,11 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   }
   $("orientPortrait").addEventListener("click", () => setOrientation("portrait"));
   $("orientLandscape").addEventListener("click", () => setOrientation("landscape"));
+  $("credit").addEventListener("change", e => {
+    state.credit = e.target.checked;
+    if (isGrid()) { setCell(null); reflow(); }
+    save(); render();
+  });
   $("printBtn").addEventListener("click", () => { select(null); setCell(null); window.print(); });
 
   /* ---------- Search ---------- */
