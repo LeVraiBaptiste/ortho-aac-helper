@@ -33,6 +33,8 @@ Tout tient dans un seul fichier `index.html` : pas d'installation, pas de compte
 | Flèches | Grille : changer de case. Libre : déplacer le picto (Maj + flèche pour aller plus vite) |
 | Suppr / Retour arrière | Retirer le picto sélectionné |
 | Échap | Désélectionner |
+| Ctrl+Z | Annuler la dernière modification (aussi avec le bouton ↶) |
+| Ctrl+Maj+Z ou Ctrl+Y | Rétablir (aussi avec le bouton ↷) |
 
 ## Crédits et licence des pictogrammes
 

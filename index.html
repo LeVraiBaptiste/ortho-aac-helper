@@ -248,6 +248,8 @@ body:not(.grid-mode) .grid-only { display: none !important; }
 <header>
   <h1>Planche de pictogrammes</h1>
   <span id="apiStatus" class="status">Test de l'API ARASAAC…</span>
+  <button id="undoBtn" type="button" title="Annuler (Ctrl+Z)" aria-label="Annuler" disabled>↶</button>
+  <button id="redoBtn" type="button" title="Rétablir (Ctrl+Maj+Z)" aria-label="Rétablir" disabled>↷</button>
   <button id="exportBtn" type="button">Exporter en Word</button>
   <button id="printBtn" class="primary" type="button">Imprimer la page</button>
 </header>
@@ -443,7 +445,34 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     } catch {}
     return { orientation: "portrait", mode: "grid", snap: true, frameAll: false, grid: { ...DEFAULT_GRID }, text: { ...DEFAULT_TEXT }, items: [] };
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
+  /* Every change goes through save(): the previous state is kept for Ctrl+Z.
+     Changes less than 600 ms apart (typing, dragging, sliders) make a single step. */
+  const undoStack = [], redoStack = [];
+  let saved = JSON.stringify(state), lastChange = 0;
+  function save() {
+    const s = JSON.stringify(state);
+    if (s === saved) return;
+    const now = Date.now();
+    if (now - lastChange > 600) { undoStack.push(saved); if (undoStack.length > 100) undoStack.shift(); }
+    redoStack.length = 0;
+    lastChange = now;
+    persist(s);
+  }
+  function persist(s) {
+    saved = s;
+    try { localStorage.setItem(KEY, s); } catch {}
+    $("undoBtn").disabled = !undoStack.length; $("redoBtn").disabled = !redoStack.length;
+  }
+  function travel(from, to) {
+    if (!from.length) return;
+    to.push(saved);
+    state = JSON.parse(from.pop());
+    lastChange = 0;
+    persist(JSON.stringify(state));
+    if (!current()) selected = null;
+    render();
+  }
+  const undo = () => travel(undoStack, redoStack), redo = () => travel(redoStack, undoStack);
 
   const dims = () => state.orientation === "portrait" ? { w: 210, h: 297 } : { w: 297, h: 210 };
   const isGrid = () => state.mode === "grid";
@@ -900,6 +929,13 @@ body:not(.grid-mode) .grid-only { display: none !important; }
   $("selDel").addEventListener("click", () => selected && removeItem(selected));
 
   document.addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === "z" || k === "y")
+        && !e.target.matches("input:not([type=checkbox], [type=radio], [type=range]), textarea")) {
+      e.preventDefault();
+      (k === "y" || e.shiftKey) ? redo() : undo();
+      return;
+    }
     const it = current();
     if (e.key === "Escape") { select(null); setCell(null); return; }
     if (!it || e.target.matches("input, select, textarea")) return;
@@ -1047,6 +1083,8 @@ body:not(.grid-mode) .grid-only { display: none !important; }
     }
   }
   $("exportBtn").addEventListener("click", exportDocx);
+  $("undoBtn").addEventListener("click", undo);
+  $("redoBtn").addEventListener("click", redo);
 
   /* ---------- Page tools ---------- */
   $("clearBtn").addEventListener("click", () => {
